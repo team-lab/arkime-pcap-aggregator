@@ -1,3 +1,5 @@
+use chrono::prelude::*;
+use clap::Parser;
 use itertools::Itertools;
 use pcap::Capture;
 use sscanf;
@@ -5,7 +7,50 @@ use std::collections::HashMap;
 
 const INVERSE_MICRO: u64 = 1000000; // 10の6乗マイクロ秒を戻すために掛ける定数
 
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    // フィルタするmacアドレス
+    #[clap(long)]
+    src_mac: String,
+
+    // 対象とするパケットの開始時刻
+    #[clap(long)]
+    first: String,
+
+    // 対象とするパケットの終了時刻
+    #[clap(long)]
+    last: String,
+
+    // pcapファイルを検査する対象ディレクトリ
+    #[clap(long, default_value = "/var/large-store/arkime/raw/")]
+    search_path: String,
+}
+
 fn main() {
+    let args = Args::parse();
+
+    let fillter_src_mac = to_mac_u8list(args.src_mac.to_string());
+
+    let first_datetime = match DateTime::parse_from_rfc3339(&args.first) {
+        Err(_) => {
+            println!(
+                "an invalid datetime format in `first` param: {}",
+                args.first
+            );
+            std::process::exit(exitcode::CONFIG);
+        }
+        Ok(d) => d,
+    };
+
+    let last_datetime = match DateTime::parse_from_rfc3339(&args.last) {
+        Err(_) => {
+            println!("an invalid datetime format in `last` param: {}", args.last);
+            std::process::exit(exitcode::CONFIG);
+        }
+        Ok(d) => d,
+    };
+
     let mut cap = match Capture::from_file("test.pcapng") {
         Err(e) => {
             println!("failed to open pcap file: {}", e);
@@ -13,8 +58,6 @@ fn main() {
         }
         Ok(c) => c,
     };
-
-    let fillter_src_mac = to_mac_u8list("3c:22:fb:2c:7d:25".to_string());
 
     // パケット長の分布を保存するmap
     let mut packet_len_distribution = HashMap::new();

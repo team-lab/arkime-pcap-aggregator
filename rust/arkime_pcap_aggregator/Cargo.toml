@@ -9,5 +9,9 @@ edition = "2021"
 pcap = { version = "0.9"}
 exitcode = "1.1.2"
 itertools = "0.7.8"
+
+#libcいらない
 libc = "0.2"
 sscanf = "0.2.1"
+clap = { version = "3.1.18", features = ["derive"] }
+chrono = "0.4"
