@@ -21,6 +21,7 @@ dependencies = [
  "itertools",
  "libc",
  "pcap",
+ "regex",
  "sscanf",
 ]
 
