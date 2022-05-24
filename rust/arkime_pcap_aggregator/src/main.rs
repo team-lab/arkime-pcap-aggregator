@@ -76,18 +76,14 @@ fn main() {
     // ".../localhost-220508-00001297.pcap"のようなファイル名を想定
     let re = Regex::new(r"/.+-(\d{6})-(\d{8})\.pcap$").unwrap();
 
-
     struct FileEntry {
-        is_pcap: bool,
         filename: String,
         fileid: u32,
         pcap_date: chrono::DateTime<FixedOffset>,
     }
-    let mut pcap_list: Vec<_> = dirs
+    let mut pcap_list: Vec<FileEntry> = dirs
         .filter_map(|r| r.ok())
-        .map(|d| {
-            // ここoption型返せば良くない？
-            
+        .map(|d| {            
             let path_str = d.path().into_os_string().into_string().unwrap();
             let cap_option = re.captures(&path_str);
 
@@ -98,13 +94,41 @@ fn main() {
             
             let pcap_date = DateTime::parse_from_str(&cap[0], "%y%m%d").unwrap();
             Some(FileEntry{
-                is_pcap: true,
                 filename: path_str,
                 fileid: cap[1].parse().unwrap(),
                 pcap_date: pcap_date,
             })
         })
+        .filter(|o| o.is_some())
+        .map(|o| o.unwrap())
         .collect();
+    
+    pcap_list.sort_by(|a, b| a.fileid.partial_cmp(&b.fileid).unwrap());
+
+    // 前日の日付のファイルに一部集計対象のパケットが含まれている可能性があり、読み出し始めるファイルのindex
+    let mut read_first_index = 0;
+    // pcapの読み出しを終えるファイルのindex
+    let mut read_last_index = pcap_list.len() - 1;
+    {
+        let mut searching_first_index = true;
+        for (i, e) in pcap_list.iter().enumerate() {
+            if searching_first_index {
+                if e.pcap_date > first_datetime {
+                    continue;
+                }else {
+                    read_first_index = i - 1;
+                    searching_first_index = false;
+                }
+            }else {
+                if e.pcap_date < last_datetime {
+                    continue;
+                }else {
+                    read_last_index = i - 1;
+                    break;
+                }
+            }
+        }
+    }
 
     // パケット長の分布を保存するmap
     let mut packet_len_distribution = HashMap::new();
@@ -114,10 +138,7 @@ fn main() {
 
 
     // pcapごとの大きなループ
-    for path in dirs
-        .filter_map(|r| r.ok())
-        .map(|d| (d.path(), d.path().into_os_string().into_string().unwrap()))
-        .filter(|t| re.is_match(&t.1))
+    for path in pcap_list[read_first_index..read_last_index].iter().map(|e| e.filename)
     {
         println!("read from {:?}", path);
 
@@ -125,7 +146,7 @@ fn main() {
             Err(e) => {
                 println!(
                     "failed to open pcap file; skip this file: {}, reason: {}",
-                    path.display(),
+                    path,
                     e
                 );
                 continue;
