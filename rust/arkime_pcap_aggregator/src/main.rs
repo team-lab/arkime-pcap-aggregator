@@ -96,7 +96,6 @@ fn main() {
             }
             let cap = cap_option.unwrap();
 
-            NaiveDateTime::parse_from_str(&cap[1], "%y%m%d").unwrap();
             let pcap_native_date = NaiveDate::parse_from_str(&cap[1], "%y%m%d").unwrap();
             //let pcap_date = FixedOffset::east(9 * 3600).from_local_datetime(&pcap_native_date).unwrap();
             Some(FileEntry {
