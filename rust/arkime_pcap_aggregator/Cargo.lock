@@ -19,7 +19,6 @@ dependencies = [
  "clap",
  "exitcode",
  "itertools",
- "libc",
  "pcap",
  "regex",
  "sscanf",
