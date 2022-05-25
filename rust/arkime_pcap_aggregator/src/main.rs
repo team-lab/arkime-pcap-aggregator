@@ -5,6 +5,8 @@ use pcap::Capture;
 use sscanf;
 use std::collections::HashMap;
 use std::fs;
+use std::io::BufWriter;
+use std::io::Write;
 
 extern crate regex;
 
@@ -39,7 +41,7 @@ fn main() {
 
     let first_datetime = match DateTime::parse_from_rfc3339(&args.first) {
         Err(_) => {
-            println!(
+            eprintln!(
                 "an invalid datetime format in `first` param: {}",
                 args.first
             );
@@ -52,7 +54,7 @@ fn main() {
 
     let last_datetime = match DateTime::parse_from_rfc3339(&args.last) {
         Err(_) => {
-            println!("an invalid datetime format in `last` param: {}", args.last);
+            eprintln!("an invalid datetime format in `last` param: {}", args.last);
             std::process::exit(exitcode::CONFIG);
         }
         Ok(d) => d,
@@ -64,7 +66,7 @@ fn main() {
 
     let dirs = match fs::read_dir(&args.search_path) {
         Err(e) => {
-            println!(
+            eprintln!(
                 "failed to read directory: {}, reason: {}",
                 args.search_path, e
             );
@@ -105,7 +107,7 @@ fn main() {
         .collect();
 
     if pcap_list.len() == 0 {
-        println!("there are no pcap files to process; exit.");
+        eprintln!("there are no pcap files to process; exit.");
         std::process::exit(exitcode::OK);
     }
 
@@ -155,11 +157,11 @@ fn main() {
         .iter()
         .map(|e| &e.filename)
     {
-        println!("read from {:?}", path);
+        eprintln!("read from {:?}", path);
 
         let mut cap = match Capture::from_file(path) {
             Err(e) => {
-                println!(
+                eprintln!(
                     "failed to open pcap file; skip this file: {}, reason: {}",
                     path, e
                 );
@@ -209,11 +211,63 @@ fn main() {
         }
     }
 
-    for (len, count) in packet_len_distribution.iter().sorted() {
-        println!("{}\t{}", len, count);
-    }
-    for (delta, count) in arrival_interval_distribution.iter().sorted() {
-        println!("{}\t{}", delta, count);
+    // 結果をファイルに書き出し始める
+    {
+        let len_distr_filename = format!(
+            "{}-{}--{}-len-distr.tsv",
+            to_mac_file_string(&fillter_src_mac),
+            first_datetime.format("%Y%m%dT%H%M%S").to_string(),
+            last_datetime.format("%Y%m%dT%H%M%S").to_string()
+        );
+
+        match fs::File::create(&len_distr_filename) {
+            Ok(f) => {
+                let mut writer = BufWriter::new(f);
+                for (len, count) in packet_len_distribution.iter().sorted() {
+                    if let Err(e) = writer.write(format!("{}\t{}", len, count).as_bytes()) {
+                        eprintln!("file write error: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "failed to create an output file: {}, reason: {}",
+                    &len_distr_filename, e
+                );
+                eprintln!("fallback to stdout output");
+                for (len, count) in packet_len_distribution.iter().sorted() {
+                    println!("{}\t{}", len, count);
+                }
+            }
+        }
+
+        let arrival_interval_distr_filename = format!(
+            "{}-{}--{}-len-distr.tsv",
+            to_mac_file_string(&fillter_src_mac),
+            first_datetime.format("%Y%m%dT%H%M%S").to_string(),
+            last_datetime.format("%Y%m%dT%H%M%S").to_string()
+        );
+
+        match fs::File::create(&arrival_interval_distr_filename) {
+            Ok(f) => {
+                let mut writer = BufWriter::new(f);
+                for (delta, count) in arrival_interval_distribution.iter().sorted() {
+                    if let Err(e) = writer.write(format!("{}\t{}", delta, count).as_bytes()) {
+                        eprintln!("file write error: {}", e);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "failed to create an output file: {}, reason: {}",
+                    &arrival_interval_distr_filename, e
+                );
+                eprintln!("fallback to stdout output");
+                for (delta, count) in arrival_interval_distribution.iter().sorted() {
+                    println!("{}\t{}", delta, count);
+                }
+            }
+        }
     }
 }
 
@@ -221,6 +275,13 @@ fn main() {
 fn to_mac_string(mac: &[u8]) -> String {
     format!(
         "{:x}:{:x}:{:x}:{:x}:{:x}:{:x}",
+        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
+    )
+}
+
+fn to_mac_file_string(mac: &[u8]) -> String {
+    format!(
+        "{:x}{:x}{:x}{:x}{:x}{:x}",
         mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]
     )
 }
