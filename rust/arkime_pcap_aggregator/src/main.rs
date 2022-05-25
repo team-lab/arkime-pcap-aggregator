@@ -87,10 +87,6 @@ fn main() {
         .map(|d| {
             let path_str = d.path().into_os_string().into_string().unwrap();
             let cap_option = re.captures(&path_str);
-
-            println!("path_str: {}", path_str);
-            println!("opt: {:?}", cap_option);
-
             if cap_option.is_none() || cap_option.as_ref().unwrap().len() != 3 {
                 return None::<FileEntry>;
             }
@@ -108,8 +104,12 @@ fn main() {
         .map(|o| o.unwrap())
         .collect();
 
+    if pcap_list.len() == 0 {
+        println!("there are no pcap files to process; exit.");
+        std::process::exit(exitcode::OK);
+    }
+
     pcap_list.sort_by(|a, b| a.fileid.partial_cmp(&b.fileid).unwrap());
-    println!("pcap_list dump: {:?}", pcap_list);
 
     // 前日の日付のファイルに一部集計対象のパケットが含まれている可能性があり、読み出し始めるファイルのindex
     let mut read_first_index = 0;
@@ -124,14 +124,20 @@ fn main() {
                 if e.pcap_date > first_naive_date {
                     continue;
                 } else {
-                    read_first_index = i - 1;
+                    read_first_index = match i.checked_sub(1) {
+                        Some(i) => i,
+                        None => 0,
+                    };
                     searching_first_index = false;
                 }
             } else {
                 if e.pcap_date < last_naive_date {
                     continue;
                 } else {
-                    read_last_index = i - 1;
+                    read_last_index = match i.checked_sub(1) {
+                        Some(i) => i,
+                        None => 0,
+                    };
                     break;
                 }
             }
@@ -145,7 +151,7 @@ fn main() {
     let mut prev_arrival = 0;
 
     // pcapごとの大きなループ
-    for path in pcap_list[read_first_index..read_last_index]
+    for path in pcap_list[read_first_index..=read_last_index]
         .iter()
         .map(|e| &e.filename)
     {
