@@ -95,7 +95,6 @@ fn main() {
             let cap = cap_option.unwrap();
 
             let pcap_native_date = NaiveDate::parse_from_str(&cap[1], "%y%m%d").unwrap();
-            //let pcap_date = FixedOffset::east(9 * 3600).from_local_datetime(&pcap_native_date).unwrap();
             Some(FileEntry {
                 filename: path_str.clone(),
                 fileid: cap[2].parse().unwrap(),
@@ -123,7 +122,7 @@ fn main() {
         let mut searching_first_index = true;
         for (i, e) in pcap_list.iter().enumerate() {
             if searching_first_index {
-                if e.pcap_date > first_naive_date {
+                if e.pcap_date < first_naive_date {
                     continue;
                 } else {
                     read_first_index = match i.checked_sub(1) {
@@ -133,7 +132,7 @@ fn main() {
                     searching_first_index = false;
                 }
             } else {
-                if e.pcap_date < last_naive_date {
+                if e.pcap_date <= last_naive_date {
                     continue;
                 } else {
                     read_last_index = match i.checked_sub(1) {
