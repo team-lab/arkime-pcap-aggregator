@@ -224,7 +224,7 @@ fn main() {
             Ok(f) => {
                 let mut writer = BufWriter::new(f);
                 for (len, count) in packet_len_distribution.iter().sorted() {
-                    if let Err(e) = writer.write(format!("{}\t{}", len, count).as_bytes()) {
+                    if let Err(e) = writer.write(format!("{}\t{}\n", len, count).as_bytes()) {
                         eprintln!("file write error: {}", e);
                     }
                 }
@@ -242,7 +242,7 @@ fn main() {
         }
 
         let arrival_interval_distr_filename = format!(
-            "{}-{}--{}-len-distr.tsv",
+            "{}-{}--{}-arrival-interval-distr.tsv",
             to_mac_file_string(&fillter_src_mac),
             first_datetime.format("%Y%m%dT%H%M%S").to_string(),
             last_datetime.format("%Y%m%dT%H%M%S").to_string()
@@ -252,7 +252,7 @@ fn main() {
             Ok(f) => {
                 let mut writer = BufWriter::new(f);
                 for (delta, count) in arrival_interval_distribution.iter().sorted() {
-                    if let Err(e) = writer.write(format!("{}\t{}", delta, count).as_bytes()) {
+                    if let Err(e) = writer.write(format!("{}\t{}\n", delta, count).as_bytes()) {
                         eprintln!("file write error: {}", e);
                     }
                 }
