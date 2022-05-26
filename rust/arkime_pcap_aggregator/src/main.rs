@@ -62,8 +62,6 @@ fn main() {
 
     let last_micro_sec = (last_datetime.timestamp() as u64 + 1) * INVERSE_MICRO - 1;
 
-    let focus_time_range = first_micro_sec..last_micro_sec;
-
     let dirs = match fs::read_dir(&args.search_path) {
         Err(e) => {
             eprintln!(
@@ -151,8 +149,7 @@ fn main() {
 
     let mut prev_arrival = 0;
 
-    // pcapごとの大きなループ
-    for path in pcap_list[read_first_index..=read_last_index]
+    'pacp_read_loop: for path in pcap_list[read_first_index..=read_last_index]
         .iter()
         .map(|e| &e.filename)
     {
@@ -182,9 +179,13 @@ fn main() {
             // 10年先を考えてもu64の範囲でオーバーフローすることなく計算できる。
             let arrival =
                 packet.header.ts.tv_sec as u64 * INVERSE_MICRO + packet.header.ts.tv_usec as u64;
-            if !focus_time_range.contains(&arrival) {
-                // 注目している時間範囲内に入っていないなら、処理しない。
+            // 集計開始時刻よりも到着パケットのタイムスタンプが早いなら読み飛ばす。
+            if arrival < first_micro_sec {
                 continue;
+            }
+            if arrival > last_micro_sec {
+                // 集計終了時刻よりも到着パケットのタイムスタンプが遅いなら、それ以降のパケットを読み取っても意味がない。直ちに終了する。
+                break 'pacp_read_loop;
             }
 
             // パケット長の処理
